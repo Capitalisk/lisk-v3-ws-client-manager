@@ -5,11 +5,11 @@ class LiskNodeWsClient {
 
     static RETRY_INTERVAL = 10 * 1000; // ms
     static MAX_RETRY = 10;
-    static defaultNodeURL = 'ws://localhost:8080';
+    static defaultNodeURL = 'ws://localhost:8080/ws';
 
     constructor({config, logger}) {
         this.setDefaultConfig(config);
-        this.liskNodeWsHost = config.rpcURL;
+        this.liskNodeWsURL = config.rpcURL;
         this.logger = logger;
         this.isInstantiating = false;
         this.wsClient = null;
@@ -34,7 +34,7 @@ class LiskNodeWsClient {
                 if (!this.wsClient || !this.wsClient._channel.isAlive) {
                     this.isInstantiating = true;
                     if (this.wsClient) await this.wsClient.disconnect();
-                    this.wsClient = await createWSClient(`${nodeWsHost}/ws`);
+                    this.wsClient = await createWSClient(`${nodeWsHost}`);
                     if (this.wsClient._channel && this.wsClient._channel.invoke) {
                         this.logger.info(`Connected WS node client to Host : ${nodeWsHost}`);
                         this.activeHost = nodeWsHost;
@@ -75,13 +75,13 @@ class LiskNodeWsClient {
         this.canReconnect = true;
         for (let retry = 0 ; retry < LiskNodeWsClient.MAX_RETRY && this.canReconnect ; retry++) {
             try {
-                this.logger.info(`Trying node WS primary host ${this.liskNodeWsHost}`);
-                const nodeWsClient = await this.instantiateClient(this.liskNodeWsHost);
+                this.logger.info(`Trying node WS primary host ${this.liskNodeWsURL}`);
+                const nodeWsClient = await this.instantiateClient(this.liskNodeWsURL);
                 if (nodeWsClient) {
                     return nodeWsClient;
                 }
             } catch (err) {
-                this.logger.warn(`Host(${this.liskNodeWsHost}) Error : ${err.message}`);
+                this.logger.warn(`Host(${this.liskNodeWsURL}) Error : ${err.message}`);
                 wsClientErr = err;
             }
             this.logger.warn(`Retry: ${retry + 1}, Max retries : ${LiskNodeWsClient.MAX_RETRY}`);
