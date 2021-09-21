@@ -5,12 +5,11 @@ class LiskNodeWsClient {
 
     static RETRY_INTERVAL = 10 * 1000; // ms
     static MAX_RETRY = 10;
-    static defaultNodeUrl = 'ws://localhost:8080';
+    static defaultNodeURL = 'ws://localhost:8080';
 
     constructor({config, logger}) {
         this.setDefaultConfig(config);
-        this.liskNodeWsHost = config.liskWsHost;
-        this.liskNodeWsHostFallbacks = config.liskWsHostFallbacks;
+        this.liskNodeWsHost = config.rpcURL;
         this.logger = logger;
         this.isInstantiating = false;
         this.wsClient = null;
@@ -23,11 +22,8 @@ class LiskNodeWsClient {
     }
 
     setDefaultConfig = (config) => {
-        if (!config.liskWsHost) {
-            config.liskWsHost = LiskNodeWsClient.defaultNodeUrl;
-        }
-        if (!config.liskWsHostFallbacks) {
-            config.liskWsHostFallbacks = [];
+        if (!config.rpcURL) {
+            config.rpcURL = LiskNodeWsClient.defaultNodeURL;
         }
     };
 
@@ -60,20 +56,6 @@ class LiskNodeWsClient {
         return null;
     };
 
-    tryUsingFallback = async () => {
-        if (!(this.liskNodeWsHostFallbacks && this.liskNodeWsHostFallbacks.length > 0)) {
-            this.logger.warn('No fallbacks found');
-        }
-        for (const liskNodeWsHostFallback of this.liskNodeWsHostFallbacks) {
-            try {
-                this.logger.warn(`Trying out fallback host ${liskNodeWsHostFallback}`);
-                return await this.instantiateClient(this.liskNodeWsHost);
-            } catch (err) {
-                this.logger.warn(`Fallback(${liskNodeWsHostFallback}) Error : ${err.message}, trying out next fallback`);
-            }
-        }
-    };
-
     patchDisconnectEvent = () => {
         this.internalOnClose = this.wsClient._channel._ws.onclose;
         this.wsClient._channel._ws.onclose = this.onDisconnect;
@@ -99,12 +81,8 @@ class LiskNodeWsClient {
                     return nodeWsClient;
                 }
             } catch (err) {
-                this.logger.warn(`Host(${this.liskNodeWsHost}) Error : ${err.message}, trying out available fallbacks`);
+                this.logger.warn(`Host(${this.liskNodeWsHost}) Error : ${err.message}`);
                 wsClientErr = err;
-                const nodeWsClient = await this.tryUsingFallback();
-                if (nodeWsClient) {
-                    return nodeWsClient;
-                }
             }
             this.logger.warn(`Retry: ${retry + 1}, Max retries : ${LiskNodeWsClient.MAX_RETRY}`);
             await wait(LiskNodeWsClient.RETRY_INTERVAL);
