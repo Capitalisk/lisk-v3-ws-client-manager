@@ -1,11 +1,11 @@
 const {createWSClient} = require('@liskhq/lisk-api-client');
 const {wait} = require('./utils');
 
-class LiskNodeWsClient {
+const RETRY_INTERVAL = 10 * 1000; // ms
+const MAX_RETRY = 10;
+const defaultNodeURL = 'ws://localhost:8080/ws';
 
-    static RETRY_INTERVAL = 10 * 1000; // ms
-    static MAX_RETRY = 10;
-    static defaultNodeURL = 'ws://localhost:8080/ws';
+class LiskNodeWsClient {
 
     constructor({config, logger}) {
         this.setDefaultConfig(config);
@@ -21,14 +21,14 @@ class LiskNodeWsClient {
         };
     }
 
-    setDefaultConfig = (config) => {
+    setDefaultConfig(config) {
         if (!config.rpcURL) {
-            config.rpcURL = LiskNodeWsClient.defaultNodeURL;
+            config.rpcURL = defaultNodeURL;
         }
     };
 
     // eslint-disable-next-line consistent-return
-    instantiateClient = async (nodeWsHost) => {
+    async instantiateClient(nodeWsHost) {
         try {
             if (!this.isInstantiating) {
                 if (!this.wsClient || !this.wsClient._channel.isAlive) {
@@ -56,12 +56,12 @@ class LiskNodeWsClient {
         return null;
     };
 
-    patchDisconnectEvent = () => {
+    patchDisconnectEvent() {
         this.internalOnClose = this.wsClient._channel._ws.onclose;
         this.wsClient._channel._ws.onclose = this.onDisconnect;
     };
 
-    onDisconnect = () => {
+    onDisconnect() {
         this.logger.warn(`Disconnected from server host ${this.activeHost}`);
         this.internalOnClose();
         this.onDisconnected();
@@ -70,10 +70,10 @@ class LiskNodeWsClient {
         }
     };
 
-    createWsClient = async (throwOnConnectErr = false) => {
+    async createWsClient(throwOnConnectErr = false) {
         let wsClientErr = null;
         this.canReconnect = true;
-        for (let retry = 0 ; retry < LiskNodeWsClient.MAX_RETRY && this.canReconnect ; retry++) {
+        for (let retry = 0 ; retry < MAX_RETRY && this.canReconnect ; retry++) {
             try {
                 this.logger.info(`Trying node WS primary host ${this.liskNodeWsURL}`);
                 const nodeWsClient = await this.instantiateClient(this.liskNodeWsURL);
@@ -84,8 +84,8 @@ class LiskNodeWsClient {
                 this.logger.warn(`Host(${this.liskNodeWsURL}) Error : ${err.message}`);
                 wsClientErr = err;
             }
-            this.logger.warn(`Retry: ${retry + 1}, Max retries : ${LiskNodeWsClient.MAX_RETRY}`);
-            await wait(LiskNodeWsClient.RETRY_INTERVAL);
+            this.logger.warn(`Retry: ${retry + 1}, Max retries : ${MAX_RETRY}`);
+            await wait(RETRY_INTERVAL);
         }
         if (throwOnConnectErr) {
             throw wsClientErr;
@@ -93,7 +93,7 @@ class LiskNodeWsClient {
         await this.close(wsClientErr);
     };
 
-    close = async (err) => {
+    async close(err) {
         this.canReconnect = false;
         if (this.wsClient) {
             await this.wsClient.disconnect();
