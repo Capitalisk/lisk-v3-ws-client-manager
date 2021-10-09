@@ -58,7 +58,7 @@ class LiskNodeWsClient {
 
     patchDisconnectEvent() {
         this.internalOnClose = this.wsClient._channel._ws.onclose;
-        this.wsClient._channel._ws.onclose = this.onDisconnect;
+        this.wsClient._channel._ws.onclose = () => this.onDisconnect();
     };
 
     onDisconnect() {
